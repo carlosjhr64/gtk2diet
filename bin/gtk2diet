@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+gem 'gtk2applib', '~>15.2'
+require 'gtk2applib'
+require 'gtk2diet'
+
+program = Gtk2AppLib::Program.new( Gtk2Diet::ABOUT )
+
+begin
+  Gtk2Diet::App.new(program)
+rescue Exception
+   $!.puts_bang!
+ensure
+   program.finalize
+end
