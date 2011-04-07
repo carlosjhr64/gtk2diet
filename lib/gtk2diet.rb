@@ -5,7 +5,7 @@ module Gtk2Diet
   ABOUT = {
 	'name'		=> 'Ruby-Gnome Diet',
 	'authors'	=> ['carlosjhr64@gmail.com'],
-	'website'	=> 'https://sites.google.com/site/gtk2applib/home/gtk2applib-applications/diet',
+	'website'	=> 'https://sites.google.com/site/gtk2applib/home/gtk2applib-applications/gtk2diet',
 	'website-label'	=> 'Home Page',
 	'license'	=> 'GPL',
 	'copyright'	=> '2011-04-04 11:44:08',
@@ -137,11 +137,11 @@ module Gtk2Diet
       SHARED[:MmaWeight_Entry]		= self.mmaweight_entry
       SHARED[:Weight_SpinButton]	= self.weight_spinbutton
       SHARED[:Fraction_SpinButton]	= self.fraction_spinbutton
-      self.load if File.exist?(WEIGHTS_FILE)
+      self.load
     end
 
     def load
-      mma = self.get_mma
+      mma = (File.exist?(WEIGHTS_FILE))? self.get_mma : WEIGHT
       units = mma.to_i
       fraction = (0.5 + 10.0*(mma - units)).to_i
       self.mmaweight_entry.text = mma.to_s
@@ -265,9 +265,9 @@ module Gtk2Diet
     end
 
     def append( entries=Gtk2Diet.entries, timestamp=Time.now.strftime('%H:%I:%M'), row=self.insert_counter_row )
-      Gtk2AppLib::Widgets::Label.new( entries.first, :COUNTER_LABELS, row )
-      1.upto(6){|index| Gtk2AppLib::Widgets::Label.new( entries[index], :COUNTER_LABELS, row ) }
-      Gtk2AppLib::Widgets::Button.new( timestamp, :COUNTER_LABELS, row, 'clicked' ){ self.delete(row) }
+      Gtk2AppLib::Widgets::Label.new( entries.first, row, :COUNTER_LABELS, FONT)
+      1.upto(6){|index| Gtk2AppLib::Widgets::Label.new( entries[index], row, :COUNTER_LABELS) }
+      Gtk2AppLib::Widgets::Button.new( timestamp, row, :COUNTER_LABELS, FONT, 'clicked'){ self.delete(row) }
       self.update
       row.show_all
     end
