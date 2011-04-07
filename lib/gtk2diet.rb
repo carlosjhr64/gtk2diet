@@ -8,7 +8,7 @@ module Gtk2Diet
 	'website'	=> 'https://sites.google.com/site/gtk2applib/home/gtk2applib-applications/gtk2diet',
 	'website-label'	=> 'Home Page',
 	'license'	=> 'GPL',
-	'copyright'	=> '2011-04-04 11:44:08',
+	'copyright'	=> '2011-04-07 16:13:40',
   }
 
   SHARED		= {}
@@ -329,6 +329,7 @@ module Gtk2Diet
     end
 
     def _build_app_menu
+      @program.append_app_menu(Gtk::SeparatorMenuItem.new)
       @program.append_app_menu('_Save'){ self.save_data_rows }
       @program.append_app_menu('_Restore'){ self.restore }
       @program.append_app_menu('_Clear'){ self._clear }
