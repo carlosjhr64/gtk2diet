@@ -20,20 +20,24 @@ module Gtk2Diet
 	'Gtk2AppLib::Widgets::Notebook', 'Gtk2AppLib::Widgets::ScrolledWindow',
 	'Gtk2AppLib::Widgets::VBox', 'Gtk2AppLib::Widgets::HBox'
 
-    [
+    [	[:Notebook,	notebook,
+	[:CounterPage_Component, :Targets_Component]],
 
-	[:Notebook,	notebook,
-		[:CounterPage_Component, :Weight_Component, :Configuration_Component]],
-
+	# Counter Page
 	[:CounterPage,	window,	[:CounterBox_Component]],
 	[:CounterBox,	vbox,	[:CounterHeader_Component]],
 
 	[:CounterHeader,hbox,
 	[:Label_Label,:Calorie_Label,:Protein_Label,:VitA_Label,:VitC_Label,:Calcium_Label,:Iron_Label,:TimeStamp_Label]],
 
-	[:Weight,	window, [:Weight_Label]],
-
-	[:Configuration, window, [:Configuration_Label]],
+	# Targets Page
+	[:Targets,	window,	[:TargetsBox_Component]],
+	[:TargetsBox,	vbox,	[:WeightRow_Component,:TargetRow_Component,:ParametersRow_Component]],
+	[:WeightRow,	hbox,	[:Weight_SpinButton,:Dot_Label,:Fraction_SpinButton,:Weight_Button,:MmaWeight_Entry,]],
+	[:TargetRow,	hbox,	[:Calories_Button,:Calories_Label]],
+	[:ParametersRow,hbox,
+		[:Target_Label,:Target_Entry,:Crash_Label,
+		:Crash_Entry,:CrashN_Entry,:Base_Label,:Base_Entry,:BumpUp_Label,:BumpUp_Entry,:BumpUpN_Entry]],
 
     ].each do |klass,sklass,keys|
       # That's class, super class, and keys
@@ -123,6 +127,80 @@ module Gtk2Diet
   class CounterBox
     def _init
       SHARED[:CounterBox] = self
+    end
+  end
+
+  # TODO about WeightRow
+  class WeightRow
+    def _init
+      self.weight_button.is		= :Weight_Button
+      SHARED[:MmaWeight_Entry]		= self.mmaweight_entry
+      SHARED[:Weight_SpinButton]	= self.weight_spinbutton
+      SHARED[:Fraction_SpinButton]	= self.fraction_spinbutton
+      self.load if File.exist?(WEIGHTS_FILE)
+    end
+
+    def load
+      mma = self.get_mma
+      units = mma.to_i
+      fraction = (0.5 + 10.0*(mma - units)).to_i
+      self.mmaweight_entry.text = mma.to_s
+      self.weight_spinbutton.value = units
+      self.fraction_spinbutton.value = fraction
+    end
+
+    def get_mma
+      mma = nil
+      file = File.open(WEIGHTS_FILE)
+      file.each do |line|
+        if !(line=~/^\s*#/) then
+          weight = line.to_f
+          if weight > MAXDIFF then
+            mma = (mma)? (weight + (MMA-1)*MMA)/MMA : weight
+          end
+        end
+      end
+      file.close
+      mma
+    end
+  end
+
+  # TODO about TargetRow
+  class TargetRow
+    def _init
+      SHARED[:Calories_Label] = self.calories_label
+      self.calories_button.is = :Calories_Button
+    end
+  end
+
+  PARAMETERS_ENTRIES = [:Target_Entry,:Crash_Entry,:CrashN_Entry,:Base_Entry,:BumpUp_Entry,:BumpUpN_Entry]
+  def self.save_parameters
+    file = File.open(PARAMETERS_FILE,'w')
+    file.puts PARAMETERS_ENTRIES.map{|key| SHARED[key].text}.join(' ')
+    file.close
+  end
+
+  # TODO about ParametersRow
+  class ParametersRow
+    def _init
+      SHARED[:Target_Entry]	= self.target_entry
+      SHARED[:Crash_Entry]	= self.crash_entry
+      SHARED[:CrashN_Entry]	= self.crashn_entry
+      SHARED[:Base_Entry]	= self.base_entry
+      SHARED[:BumpUp_Entry]	= self.bumpup_entry
+      SHARED[:BumpUpN_Entry]	= self.bumpupn_entry
+      self.load	if File.exist?(PARAMETERS_FILE)
+    end
+
+    def load
+      data = nil
+      File.open(PARAMETERS_FILE,'r'){|file| data = file.gets.strip.split(/\s+/)}
+      self.target_entry.text	= data.shift
+      self.crash_entry.text	= data.shift
+      self.crashn_entry.text	= data.shift
+      self.base_entry.text	= data.shift
+      self.bumpup_entry.text	= data.shift
+      self.bumpupn_entry.text	= data.shift
     end
   end
 
@@ -224,6 +302,7 @@ module Gtk2Diet
     def save
       Gtk2Diet.save_foods
       self.save_data_rows
+      Gtk2Diet.save_parameters
     end
 
     def _append_data_rows(file)
@@ -255,10 +334,45 @@ module Gtk2Diet
       @program.append_app_menu('_Clear'){ self._clear }
     end
 
+    def calories_button
+      target = SHARED[:Target_Entry].text.to_f
+      mma = SHARED[:MmaWeight_Entry].text.to_f
+      diff = mma - target
+      calories = nil
+      if diff > 0 then
+        calories = (BASE_DIET - (BASE_DIET - CRASH_DIET) * diff / CRASH_DIET_N).to_i
+        calories = CRASH_DIET if calories < CRASH_DIET
+      else
+        calories = (BASE_DIET + (BASE_DIET - BUMPUP_DIET) * diff / BUMPUP_DIET_N).to_i
+      end
+      SHARED[:Calories_Label].text = calories.to_s
+    end
+
+    def weight_button
+      weight = SHARED[:Weight_SpinButton].value.to_f + (SHARED[:Fraction_SpinButton].value.to_f / 10.0)
+      if weight > MAXDIFF then
+        File.open(WEIGHTS_FILE,'a') do |file|
+          file.puts "# #{Time.now}"
+          file.puts weight
+        end
+        mma = SHARED[:MmaWeight_Entry].text.to_f
+        mma = weight if (weight - mma).abs > MAXDIFF # an obvious skip, re-initialize
+        mma = (weight + (MMA-1.0)*mma)/MMA
+        mma = (100.0*mma + 0.5).to_i / 100.0
+        SHARED[:MmaWeight_Entry].text = mma.to_s
+        self.calories_button
+      end
+    end
+
     def build
       self._build_app_menu
       @window.signal_connect('destroy'){ self.save }
-      Notebook.new(@window)
+      Notebook.new(@window) do |is,signal,*emits|
+        case is
+        when :Weight_Button then self.weight_button
+        when :Calories_Button then self.calories_button
+        end
+      end
       self._build
     end
 
