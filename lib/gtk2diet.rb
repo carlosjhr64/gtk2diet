@@ -15,37 +15,12 @@ module Gtk2Diet
   SHARED[:SUMMARY]	= []
   SHARED[:ENTRIES]	= []
 
-  def self.define_notebook
-    notebook, window, vbox, hbox =
-	'Gtk2AppLib::Widgets::Notebook', 'Gtk2AppLib::Widgets::ScrolledWindow',
-	'Gtk2AppLib::Widgets::VBox', 'Gtk2AppLib::Widgets::HBox'
-
-    [	[:Notebook,	notebook,
-	[:CounterPage_Component, :Targets_Component]],
-
-	# Counter Page
-	[:CounterPage,	window,	[:CounterBox_Component]],
-	[:CounterBox,	vbox,	[:CounterHeader_Component]],
-
-	[:CounterHeader,hbox,
-	[:Label_Label,:Calorie_Label,:Protein_Label,:VitA_Label,:VitC_Label,:Calcium_Label,:Iron_Label,:TimeStamp_Label]],
-
-	# Targets Page
-	[:Targets,	window,	[:TargetsBox_Component]],
-	[:TargetsBox,	vbox,	[:WeightRow_Component,:TargetRow_Component,:ParametersRow_Component]],
-	[:WeightRow,	hbox,	[:Weight_SpinButton,:Dot_Label,:Fraction_SpinButton,:Weight_Button,:MmaWeight_Entry,]],
-	[:TargetRow,	hbox,	[:Calories_Button,:Calories_Label]],
-	[:ParametersRow,hbox,
-		[:Target_Label,:Target_Entry,:Crash_Label,
-		:Crash_Entry,:CrashN_Entry,:Base_Label,:Base_Entry,:BumpUp_Label,:BumpUp_Entry,:BumpUpN_Entry]],
-
-    ].each do |klass,sklass,keys|
-      # That's class, super class, and keys
-      code = Gtk2AppLib::Component.define(klass,sklass,keys)
-      eval( code )
-    end
+  # GUI defined in appconfig
+  GUI.each do |klass,sklass,keys|
+    # That's class, super class, and keys
+    code = Gtk2AppLib::Component.define(klass,sklass,keys)
+    eval( code )
   end
-  Gtk2Diet.define_notebook
 
   def self._load(foods, file=File.open(FOODS_FILE,'r'))
     file.each do |line|
@@ -84,8 +59,9 @@ module Gtk2Diet
 
   def self.summary
     row = Gtk2Diet.counter_row
-    8.times do
-      SHARED[:SUMMARY].push( Gtk2AppLib::Widgets::Label.new(:Counter_Labels, row) )
+    COUNTER_LABELS.each do |key,label|
+      key = (key == :Label_Label)? :Counter_Wide : :Counter_Narrow
+      SHARED[:SUMMARY].push( Gtk2AppLib::Widgets::Label.new(key, row) )
     end
   end
 
@@ -102,7 +78,7 @@ module Gtk2Diet
   def self.update_entries( entries=Gtk2Diet.entries, label=entries.first )
     if label.strip.length > 0 then
       insert = (FOODS[label])? false: true
-      FOODS[label] = entries[1..6]
+      FOODS[label] = entries[1..-1]
       return [Gtk2Diet.foods.find_index(label),label] if insert
     end
     return nil
@@ -111,7 +87,7 @@ module Gtk2Diet
   def self.set_entries(label)
     if values = FOODS[label] then
       entries = SHARED[:ENTRIES]
-      0.upto(5){|index| entries[index+1].value = values[index].to_f}
+      1.upto(M){|index| entries[index].value = values[index-1].to_f}
     end
   end
 
@@ -168,8 +144,8 @@ module Gtk2Diet
   # TODO about TargetRow
   class TargetRow
     def _init
-      SHARED[:Calories_Label] = self.calories_label
-      self.calories_button.is = :Calories_Button
+      SHARED[:TargetCalories_Label] = self.targetcalories_label
+      self.targetcalories_button.is = :TargetCalories_Button
     end
   end
 
@@ -227,7 +203,7 @@ module Gtk2Diet
 
     def update_summary
       rows = self.data_rows
-      1.upto(6){|index| Gtk2Diet.summary_sum(rows,index) }
+      2.upto(M){|index| Gtk2Diet.summary_sum(rows,index) }
     end
 
     def clear
@@ -265,9 +241,9 @@ module Gtk2Diet
     end
 
     def append( entries=Gtk2Diet.entries, timestamp=Time.now.strftime('%H:%I:%M'), row=self.insert_counter_row )
-      Gtk2AppLib::Widgets::Label.new( entries.first, row, :COUNTER_LABELS, FONT)
-      1.upto(6){|index| Gtk2AppLib::Widgets::Label.new( entries[index], row, :COUNTER_LABELS) }
-      Gtk2AppLib::Widgets::Button.new( timestamp, row, :COUNTER_LABELS, FONT, 'clicked'){ self.delete(row) }
+      Gtk2AppLib::Widgets::Button.new( timestamp, row, :COUNTER_NARROW, FONT, 'clicked'){ self.delete(row) }
+      Gtk2AppLib::Widgets::Label.new( entries.shift, row, :COUNTER_WIDE )
+      entries.each{|entry| Gtk2AppLib::Widgets::Label.new( entry, row, :COUNTER_NARROW )}
       self.update
       row.show_all
     end
@@ -283,17 +259,17 @@ module Gtk2Diet
     end
 
     def appender( row=Gtk2Diet.counter_row, entries=SHARED[:ENTRIES] )
+      Gtk2AppLib::Widgets::Button.new(:Counter_Button, row){ self.append }
       self.appender_comboboxentry(row)
       entries.push( @combo_box_entry )
-      6.times do
+      (M-1).times do
         entries.push( Gtk2AppLib::Widgets::SpinButton.new(:Counter_SpinButtons, row) )
       end
-      Gtk2AppLib::Widgets::Button.new(:Counter_Button, row){ self.append }
     end
 
     def save_data_rows
       file = Gtk2Diet._open(ROWS_FILE)
-      self.data_rows.each do |row|
+      self.data_rows.reverse.each do |row|
         file.puts Gtk2Diet.row_line(row)
       end
       file.close
@@ -308,7 +284,7 @@ module Gtk2Diet
     def _append_data_rows(file)
       file.each do |line|
         entries = line.strip.split(/\s+/)
-        timestamp = entries.pop
+        timestamp = entries.shift
         self.append(entries,timestamp)
       end
     end
@@ -335,7 +311,7 @@ module Gtk2Diet
       @program.append_app_menu('_Clear'){ self._clear }
     end
 
-    def calories_button
+    def target_calories
       target = SHARED[:Target_Entry].text.to_f
       mma = SHARED[:MmaWeight_Entry].text.to_f
       diff = mma - target
@@ -346,7 +322,7 @@ module Gtk2Diet
       else
         calories = (BASE_DIET + (BASE_DIET - BUMPUP_DIET) * diff / BUMPUP_DIET_N).to_i
       end
-      SHARED[:Calories_Label].text = calories.to_s
+      SHARED[:TargetCalories_Label].text = calories.to_s
     end
 
     def weight_button
@@ -361,7 +337,7 @@ module Gtk2Diet
         mma = (weight + (MMA-1.0)*mma)/MMA
         mma = (100.0*mma + 0.5).to_i / 100.0
         SHARED[:MmaWeight_Entry].text = mma.to_s
-        self.calories_button
+        self.target_calories
       end
     end
 
@@ -371,7 +347,7 @@ module Gtk2Diet
       Notebook.new(@window) do |is,signal,*emits|
         case is
         when :Weight_Button then self.weight_button
-        when :Calories_Button then self.calories_button
+        when :TargetCalories_Button then self.target_calories
         end
       end
       self._build

@@ -14,7 +14,47 @@ module Gtk2Diet
   BASE_DIET	= 2000.0
   BUMPUP_DIET	= 3000.0
   BUMPUP_DIET_N	= 1.0
-  WEIGHT	= 175.2
+  WEIGHT	= 175.5
+
+  notebook, window, vbox, hbox =
+	'Gtk2AppLib::Widgets::Notebook',
+	'Gtk2AppLib::Widgets::ScrolledWindow',
+	'Gtk2AppLib::Widgets::VBox',
+	'Gtk2AppLib::Widgets::HBox'
+
+  COUNTER_LABELS = [
+	[ :TimeStamp_Label,	'Time'		],
+	[ :Label_Label,		'Label'		],
+	[ :Calories_Label,	'Calories'	],
+	[ :Fat_Label,		'Fat'		],
+	[ :Protein_Label,	'Protein'	],
+	[ :VitA_Label,		'Vit. A'	],
+	[ :VitC_Label,		'Vit. C'	],
+	[ :Calcium_Label,	'Calcium'	],
+	[ :Iron_Label,		'Iron'		],
+	]
+  N = COUNTER_LABELS.length
+  M = N - 1
+
+  GUI = [
+	[:Notebook,	notebook,
+	[:CounterPage_Component, :Targets_Component]],
+
+	# Counter Page
+	[:CounterPage,	window,	[:CounterBox_Component]],
+	[:CounterBox,	vbox,	[:CounterHeader_Component]],
+
+	[:CounterHeader,hbox,	COUNTER_LABELS.map{|key_value| key_value.first}],
+
+	# Targets Page
+	[:Targets,	window,	[:TargetsBox_Component]],
+	[:TargetsBox,	vbox,	[:WeightRow_Component,:TargetRow_Component,:ParametersRow_Component]],
+	[:WeightRow,	hbox,	[:Weight_SpinButton,:Dot_Label,:Fraction_SpinButton,:Weight_Button,:MmaWeight_Entry,]],
+	[:TargetRow,	hbox,	[:TargetCalories_Button,:TargetCalories_Label]],
+	[:ParametersRow,hbox,
+		[:Target_Label,:Target_Entry,:Crash_Label,
+		:Crash_Entry,:CrashN_Entry,:Base_Label,:Base_Entry,:BumpUp_Label,:BumpUp_Entry,:BumpUpN_Entry]],
+  	]
 end
 
 module Gtk2AppLib
@@ -28,24 +68,19 @@ module Configuration
 
 
   PARAMETERS[:DELETE]			= ['Delete this row?', {:TITLE => 'Delete?'}]
-  OPTIONS[:COUNTER_LABELS]		= { :width_request=	=> 90, }
+  OPTIONS[:COUNTER_NARROW]		= { :width_request=	=> 75, }
+  OPTIONS[:COUNTER_WIDE]		= { :width_request=	=> 125, }
 
 
   # Counter Page Configuration
+  Gtk2Diet::COUNTER_LABELS.each{|key,label| PARAMETERS[key] = [label, (key==:Label_Label)? :COUNTER_WIDE : :COUNTER_NARROW]}
   PARAMETERS[:CounterPage_Component]	= ['Counter']
-  PARAMETERS[:Label_Label]		= ['Label',	:COUNTER_LABELS]
-  PARAMETERS[:Calorie_Label]		= ['Calories',	:COUNTER_LABELS]
-  PARAMETERS[:Protein_Label]		= ['Protein',	:COUNTER_LABELS]
-  PARAMETERS[:VitA_Label]		= ['Vit. A',	:COUNTER_LABELS]
-  PARAMETERS[:VitC_Label]		= ['Vit. C',	:COUNTER_LABELS]
-  PARAMETERS[:Calcium_Label]		= ['Calcium',	:COUNTER_LABELS]
-  PARAMETERS[:Iron_Label]		= ['Iron',	:COUNTER_LABELS]
-  PARAMETERS[:TimeStamp_Label]		= ['Time',	:COUNTER_LABELS]
-  PARAMETERS[:Counter_Labels]		= ['',		:COUNTER_LABELS]
-  PARAMETERS[:Counter_SpinButtons]	= [[],		:COUNTER_LABELS, {:set_range  => [0,1000]}]
-  PARAMETERS[:Counter_Button]		= ['Add',	:COUNTER_LABELS, 'clicked']
+  PARAMETERS[:Counter_Narrow]		= ['',		:COUNTER_NARROW]
+  PARAMETERS[:Counter_Wide]		= ['TOTALS:',		:COUNTER_WIDE]
+  PARAMETERS[:Counter_SpinButtons]	= [[],		:COUNTER_NARROW, {:set_range  => [0,1000]}]
+  PARAMETERS[:Counter_Button]		= ['Add',	:COUNTER_NARROW, 'clicked']
   # Note that PARAMETERS[:Counter_ComboBoxEntries][0] is set to Gtk2Diet.foods in lib/gtk2diet.rb
-  PARAMETERS[:Counter_ComboBoxEntries]	= [nil,		:COUNTER_LABELS, 'changed']
+  PARAMETERS[:Counter_ComboBoxEntries]	= [nil,		:COUNTER_WIDE, 'changed']
 
   font = Gtk2Diet::FONT
   # Configuration Page Configuration
@@ -54,19 +89,19 @@ module Configuration
   PARAMETERS[:Dot_Label]		= ['.']
   PARAMETERS[:Fraction_SpinButton]	= [[], {:set_range  => [0,9]}]
   PARAMETERS[:Weight_Button]		= ["#{Gtk2Diet::MMA.to_i} Modified Moving Average Weight",'clicked']
-  PARAMETERS[:MmaWeight_Entry]		= [Gtk2Diet::WEIGHT.to_s,	:COUNTER_LABELS]
+  PARAMETERS[:MmaWeight_Entry]		= [Gtk2Diet::WEIGHT.to_s,	:COUNTER_NARROW]
   PARAMETERS[:Target_Label]		= ['Target Weight:',	font]
-  PARAMETERS[:Target_Entry]		= [Gtk2Diet::WEIGHT.to_s,	:COUNTER_LABELS]
-  PARAMETERS[:Calories_Button]		= ['Calculate Target Calories','clicked']
-  PARAMETERS[:Calories_Label]		= ['',	:COUNTER_LABELS]
+  PARAMETERS[:Target_Entry]		= [Gtk2Diet::WEIGHT.to_s,	:COUNTER_NARROW]
+  PARAMETERS[:TargetCalories_Button]	= ['Calculate Target Calories','clicked']
+  PARAMETERS[:TargetCalories_Label]	= ['',	:COUNTER_NARROW]
   PARAMETERS[:Crash_Label]		= ['Crash:',	font]
-  PARAMETERS[:Crash_Entry]		= [Gtk2Diet::CRASH_DIET.to_s,	:COUNTER_LABELS]
-  PARAMETERS[:CrashN_Entry]		= [Gtk2Diet::CRASH_DIET_N.to_s,	:COUNTER_LABELS]
+  PARAMETERS[:Crash_Entry]		= [Gtk2Diet::CRASH_DIET.to_s,	:COUNTER_NARROW]
+  PARAMETERS[:CrashN_Entry]		= [Gtk2Diet::CRASH_DIET_N.to_s,	:COUNTER_NARROW]
   PARAMETERS[:Base_Label]		= ['Base:',	font]
-  PARAMETERS[:Base_Entry]		= [Gtk2Diet::BASE_DIET.to_s,	:COUNTER_LABELS]
+  PARAMETERS[:Base_Entry]		= [Gtk2Diet::BASE_DIET.to_s,	:COUNTER_NARROW]
   PARAMETERS[:BumpUp_Label]		= ['Bump:',	font]
-  PARAMETERS[:BumpUp_Entry]		= [Gtk2Diet::BUMPUP_DIET.to_s,	:COUNTER_LABELS]
-  PARAMETERS[:BumpUpN_Entry]		= [Gtk2Diet::BUMPUP_DIET_N.to_s,:COUNTER_LABELS]
+  PARAMETERS[:BumpUp_Entry]		= [Gtk2Diet::BUMPUP_DIET.to_s,	:COUNTER_NARROW]
+  PARAMETERS[:BumpUpN_Entry]		= [Gtk2Diet::BUMPUP_DIET_N.to_s,:COUNTER_NARROW]
 
 end
 end
