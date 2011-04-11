@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 require 'rubygems'
-gem 'gtk2applib', '~>15.2'
+gem 'gtk2applib', '~>15.3'
 require 'gtk2applib'
 require 'gtk2diet'
 

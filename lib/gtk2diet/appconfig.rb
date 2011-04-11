@@ -6,6 +6,7 @@ module Gtk2Diet
 
   MMA = 7.0 # The modified moving average N
   MAXDIFF = 10.0 # The maximum allowed variation before reinitializing.
+  STAGES = 6 # Number of daily meals
 
   # INITIAL DEFAULT VALUES
   # These should be edited by the user via the GUI
@@ -34,7 +35,8 @@ module Gtk2Diet
 	[ :Iron_Label,		'Iron'		],
 	]
   N = COUNTER_LABELS.length
-  M = N - 1
+  N1 = N - 1
+  N2 = N - 2
 
   GUI = [
 	[:Notebook,	notebook,
@@ -55,6 +57,13 @@ module Gtk2Diet
 		[:Target_Label,:Target_Entry,:Crash_Label,
 		:Crash_Entry,:CrashN_Entry,:Base_Label,:Base_Entry,:BumpUp_Label,:BumpUp_Entry,:BumpUpN_Entry]],
   	]
+
+  APPEND_APP_MENU = [
+	[	:save_data_rows,	'_Save'		],
+	[	:restore,		'_Restore'	],
+	[	:save_n_clear,		'_Clear'	],
+	[	:edit_help,		'_Help'		],	# We're doing an editable help.
+  ]
 end
 
 module Gtk2AppLib
@@ -62,7 +71,6 @@ module Configuration
   Gtk2Diet::FONT = (HILDON)? {:modify_font => FONT[:SMALL]} : {:modify_font => FONT[:NORMAL]}
 
   # Application Menu
-  MENU[:help]	= '_Help'
   MENU[:dock]	= '_Dock'	if !HILDON
   MENU[:fs]	= '_Fullscreen'	if  HILDON
 
@@ -70,6 +78,7 @@ module Configuration
   PARAMETERS[:DELETE]			= ['Delete this row?', {:TITLE => 'Delete?'}]
   OPTIONS[:COUNTER_NARROW]		= { :width_request=	=> 75, }
   OPTIONS[:COUNTER_WIDE]		= { :width_request=	=> 125, }
+  OPTIONS[:HELP_TEXT_VIEW]		= OPTIONS[:HELP] # same options as :HELP
 
 
   # Counter Page Configuration
@@ -93,7 +102,7 @@ module Configuration
   PARAMETERS[:Target_Label]		= ['Target Weight:',	font]
   PARAMETERS[:Target_Entry]		= [Gtk2Diet::WEIGHT.to_s,	:COUNTER_NARROW]
   PARAMETERS[:TargetCalories_Button]	= ['Calculate Target Calories','clicked']
-  PARAMETERS[:TargetCalories_Label]	= ['',	:COUNTER_NARROW]
+  PARAMETERS[:TargetCalories_Label]	= ['']
   PARAMETERS[:Crash_Label]		= ['Crash:',	font]
   PARAMETERS[:Crash_Entry]		= [Gtk2Diet::CRASH_DIET.to_s,	:COUNTER_NARROW]
   PARAMETERS[:CrashN_Entry]		= [Gtk2Diet::CRASH_DIET_N.to_s,	:COUNTER_NARROW]
