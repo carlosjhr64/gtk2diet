@@ -1,11 +1,20 @@
-module Gtk2Diet
+module Gtk2Diet # Gtk2Diet defined
+  # Gtk2AppLib defined
+  # HILDON defined
+  # Gtk defined
+  # MENU defined
+  # PARAMETERS defined
+  # OPTIONS defined
+  # File defined
+  # Time defined
+  # IO defined
+
   FOODS_FILE	= Gtk2AppLib::USERDIR	+ '/foods.txt'
   ROWS_FILE	= Gtk2AppLib::USERDIR	+ '/data_rows.txt'
   WEIGHTS_FILE	= Gtk2AppLib::USERDIR	+ '/weights.txt'
   PARAMETERS_FILE = Gtk2AppLib::USERDIR	+ '/parameters.txt'
 
   MMA = 7.0 # The modified moving average N
-  MAXDIFF = 10.0 # The maximum allowed variation before reinitializing.
   STAGES = 6 # Number of daily meals
 
   # INITIAL DEFAULT VALUES
@@ -38,6 +47,7 @@ module Gtk2Diet
   N1 = N - 1
   N2 = N - 2
 
+  # Notebook defined here
   GUI = [
 	[:Notebook,	notebook,
 	[:CounterPage_Component, :Targets_Component]],
@@ -68,6 +78,7 @@ end
 
 module Gtk2AppLib
 module Configuration
+  # FONT defined
   Gtk2Diet::FONT = (HILDON)? {:modify_font => FONT[:SMALL]} : {:modify_font => FONT[:NORMAL]}
 
   # Application Menu

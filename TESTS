@@ -1,0 +1,2 @@
+rus -Ccd lib/gtk2diet/appconfig.rb lib/gtk2diet.rb bin/gtk2diet
+reek lib/gtk2diet/appconfig.rb lib/gtk2diet.rb bin/gtk2diet
