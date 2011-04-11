@@ -1,3 +1,12 @@
+
+# Adding round_two to Float to ensure 1.8 and 1.9 consistent
+class Float
+  def round_two
+    half_step = (self>0.0)? 0.5: -0.5
+    (half_step + 100.0*self).to_i/100.0
+  end
+end
+
 # TODO about Gtk2Diet
 module Gtk2Diet
 
@@ -19,23 +28,21 @@ module Gtk2Diet
 
   # STATELESS FUNCTIONS
 
+  def self.mma(float,mma=nil,number=MMA)
+    (mma.nil?)? float : (float + (number-1)*mma)/number
+  end
+
   # get_mma interpretes each non-comment line from a file as a Float and
   # computes the modified moving average.
   #
   # @param [String] filename
-  # @param [Float] n mma number
+  # @param [Float] number (of days?)
   # @return [Float] mma
-  def self.get_mma(filename,n)
-    mma = nil
-    file = File.open(filename)
-     file.each do |line|
-      if !(line=~/^\s*#/) then
-        weight = line.to_f
-        mma = (mma)? (weight + (n-1)*mma)/n : weight
-      end
+  def self.get_mma(filename,number=MMA)
+    File.foreach(filename).select{|line| line !~ /^\s*#/ }.inject(nil) do |mma,line|
+      float = line.to_f
+      Gtk2Diet.mma(float,mma,number)
     end
-    file.close
-    mma
   end
 
   # load_key_values reads a file
@@ -45,22 +52,20 @@ module Gtk2Diet
   # @param [Hash] hash
   # @param [String] filename
   def self.load_key_values(hash, filename)
-    file = File.new(filename,'r')
-    file.each do |line|
+    File.foreach(filename) do |line|
       data = line.strip.split(/\s+/)
       label = data.shift
       hash[label] = data
     end
-    file.close
   end
 
-  # open is like File.open, except no block and
+  # open is like File.open, except
   # it moves filename to filename.bak if it pre-exists.
   #
   # @param [String] filename
-  def self.open(filename)
+  def self.open(filename,&block)
     File.rename(filename,filename+'.bak') if File.exist?(filename)
-    File.open(filename,'w')
+    File.open(filename,'w',&block)
   end
 
   # row_line is a String dump of the labels in row
@@ -101,16 +106,30 @@ module Gtk2Diet
     end
   end
 
+  # Entries is an Array to hold entries
+  class Entries < Array # Entries defined
+    def initialize
+      super
+    end
+
+    def self.values(entries)
+      entries.map{|entry| (entry.kind_of?(Gtk::SpinButton))? entry.value.to_s : entry.active_text}
+    end
+
+    def values
+      Entries.values(self)
+    end
+  end
 
   # TODO about Gtk2Diet::App
-  class App
+  class App # App defined
 
     def initialize(program)
       @program = program
       @notebook = @combo_box_entry = nil # gets set later
       @foods = Foods.new
       @summary = []
-      @entries = []
+      @entries = Entries.new
       program.window do |window|
         @window = window
         self.build # defined way down below
@@ -127,8 +146,7 @@ module Gtk2Diet
     end
 
     def summary_sum(rows,index)
-      sum = rows.inject(0.0){|sum,row| sum + row.children[index].label.to_f    }
-      @summary[index].text = sum.to_s
+      @summary[index].text = rows.inject(0.0){|sum,row| sum + row.children[index].label.to_f }.to_s
     end
 
     def update_summary
@@ -144,10 +162,6 @@ module Gtk2Diet
     def clear
       data_rows.each{|row| _delete(row)}
       update_summary
-    end
-
-    def _entries
-      @entries.map{|entry| (entry.kind_of?(Gtk::SpinButton))? entry.value.to_s : entry.active_text}
     end
 
     def counter_row
@@ -167,7 +181,7 @@ module Gtk2Diet
       end
     end
 
-    def _update_entries( entries=_entries, label=entries.first )
+    def _update_entries( entries=@entries.values, label=entries.first )
       if label.strip.length > 0 then
         insert = (@foods[label])? false: true
         @foods[label] = entries[1..-1]
@@ -186,7 +200,7 @@ module Gtk2Diet
       update_entries
     end
 
-    def append( entries=_entries, timestamp=Time.now.strftime('%H:%I:%M'), row=insert_counter_row )
+    def append( entries=@entries.values, timestamp=Time.now.strftime('%H:%I:%M'), row=insert_counter_row )
       Gtk2AppLib::Widgets::Button.new( timestamp, row, :COUNTER_NARROW, FONT, 'clicked'){ delete(row) }
       Gtk2AppLib::Widgets::Label.new( entries.shift, row, :COUNTER_WIDE )
       entries.each{|entry| Gtk2AppLib::Widgets::Label.new( entry, row, :COUNTER_NARROW )}
@@ -211,19 +225,27 @@ module Gtk2Diet
       append_data_rows
     end
 
-    def save_data_rows
+    def self.save_data_rows(rows)
       file = Gtk2Diet.open(ROWS_FILE)
-      data_rows.reverse.each do |row|
+      rows.each do |row|
         file.puts Gtk2Diet.row_line(row)
       end
       file.close
     end
 
+    def save_data_rows
+      App.save_data_rows(data_rows.reverse)
+    end
+
     PARAMETERS_ENTRIES = [:target_entry,:crash_entry,:crashn_entry,:base_entry,:bumpup_entry,:bumpupn_entry]
-    def save_parameters
+    def self.save_parameters(notebook)
       file = Gtk2Diet.open(PARAMETERS_FILE)
-      file.puts PARAMETERS_ENTRIES.map{|key| @notebook[key].text}.join(' ')
+      file.puts PARAMETERS_ENTRIES.map{|key| notebook[key].text}.join(' ')
       file.close
+    end
+
+    def save_parameters
+      App.save_parameters(@notebook)
     end
 
     def save
@@ -237,36 +259,27 @@ module Gtk2Diet
       clear
     end
 
-    def edit_help
-      filename = Gtk2AppLib::UserSpace.readme
-      text0 = (File.exist?(filename))? IO.read(filename): ''
-      if text1 = Gtk2AppLib::DIALOGS.text_view(text0, :HELP_TEXT_VIEW) then
-        if text1 != text0 then
-          file = Gtk2Diet.open(filename)
-          file.puts text1
-          file.close
-        end
-      end
-    end
-
     def init_parameters
       data = nil
       File.open(PARAMETERS_FILE,'r'){|file| data = file.gets.strip.split(/\s+/)}
-      @notebook[:target_entry].text	= data.shift
-      @notebook[:crash_entry].text	= data.shift
-      @notebook[:crashn_entry].text	= data.shift
-      @notebook[:base_entry].text	= data.shift
-      @notebook[:bumpup_entry].text	= data.shift
-      @notebook[:bumpupn_entry].text	= data.shift
+      [	:target_entry,
+	:crash_entry,
+	:crashn_entry,
+	:base_entry,
+	:bumpup_entry,
+	:bumpupn_entry].each{|key| @notebook[key].text = data.shift}
+    end
+
+    def self.init_weights
+      mma = (File.exist?(WEIGHTS_FILE))? Gtk2Diet.get_mma(WEIGHTS_FILE,MMA) : WEIGHT
+      return mma, mma.to_i
     end
 
     def init_weights
-      mma = (File.exist?(WEIGHTS_FILE))? Gtk2Diet.get_mma(WEIGHTS_FILE,MMA) : WEIGHT
-      units = mma.to_i
-      fraction = (0.5 + 10.0*(mma - units)).to_i
-      @notebook[:mmaweight_entry].text = mma.to_s
+      mma,units = App.init_weights
+      @notebook[:mmaweight_entry].text = mma.round_two.to_s
       @notebook[:weight_spinbutton].value = units
-      @notebook[:fraction_spinbutton].value = fraction
+      @notebook[:fraction_spinbutton].value = (0.5 + 10.0*(mma - units)).to_i
     end
 
     def _set_entries(label)
@@ -284,12 +297,12 @@ module Gtk2Diet
       @combo_box_entry = Gtk2AppLib::Widgets::ComboBoxEntry.new(:Counter_ComboBoxEntries, row){ set_entries }
     end
 
-    def appender( row=counter_row, entries=@entries )
+    def appender( row=counter_row )
       Gtk2AppLib::Widgets::Button.new(:Counter_Button, row){ append }
       appender_comboboxentry(row)
-      entries.push( @combo_box_entry )
+      @entries.push( @combo_box_entry )
       (N2).times do
-        entries.push( Gtk2AppLib::Widgets::SpinButton.new(:Counter_SpinButtons, row) )
+        @entries.push( Gtk2AppLib::Widgets::SpinButton.new(:Counter_SpinButtons, row) )
       end
     end
 
@@ -309,40 +322,39 @@ module Gtk2Diet
       init_parameters	if File.exist?(PARAMETERS_FILE)
     end
 
-    def _target_calories( mma=@notebook[:mmaweight_entry].text.to_f, target=@notebook[:target_entry].text.to_f )
-      diff = mma - target
-      calories = nil
-      if diff > 0 then
-        calories = (BASE_DIET - (BASE_DIET - CRASH_DIET) * diff / CRASH_DIET_N).to_i
-        calories = CRASH_DIET if calories < CRASH_DIET
-      else
-        calories = (BASE_DIET + (BASE_DIET - BUMPUP_DIET) * diff / BUMPUP_DIET_N).to_i
-      end
-      calories
-    end
-
     def _weight
       @notebook[:weight_spinbutton].value.to_f + (@notebook[:fraction_spinbutton].value.to_f / 10.0)
     end
 
+    def self.target_calories( diff )
+      if diff > 0 then
+        calories = (BASE_DIET - (BASE_DIET - CRASH_DIET) * diff / CRASH_DIET_N).to_i
+        calories = CRASH_DIET if calories < CRASH_DIET
+        return calories
+      end
+      return (BASE_DIET + (BASE_DIET - BUMPUP_DIET) * diff / BUMPUP_DIET_N).to_i
+    end
+
     def target_calories
-      calories = _target_calories( _weight )
-      label = "#{calories}.  Stages:"
-      calories = _target_calories
-      1.upto(STAGES){|i| label += " #{(calories*(i.to_f/STAGES.to_f)).to_i},"}
+      target = @notebook[:target_entry].text.to_f
+      label = "#{ App.target_calories( _weight - target ) }.  Stages:"
+      calories = App.target_calories( @notebook[:mmaweight_entry].text.to_f - target )
+      1.upto(STAGES){|stage| label += " #{(calories*(stage.to_f/STAGES.to_f)).to_i},"}
       @notebook[:targetcalories_label].text = label.chop + '. '
     end
 
-    def weight_button
-      weight = _weight
+    def self.append_weight(weight)
       File.open(WEIGHTS_FILE,'a') do |file|
         file.puts "# #{Time.now}"
         file.puts weight
       end
-      mma = @notebook[:mmaweight_entry].text.to_f
-      mma = (weight + (MMA-1.0)*mma)/MMA
-      mma = (100.0*mma + 0.5).to_i / 100.0
-      @notebook[:mmaWeight_entry].text = mma.to_s
+    end
+
+    def weight_button
+      weight = _weight
+      App.append_weight(weight)
+      mmaweight_entry = @notebook[:mmaweight_entry]
+      mmaweight_entry.text = Gtk2Diet.mma( weight, mmaweight_entry.text.to_f, MMA ).round_two.to_s
       target_calories
     end
 
@@ -357,7 +369,22 @@ module Gtk2Diet
 
     def build_app_menu
       @program.append_app_menu(Gtk::SeparatorMenuItem.new)
+      # APPEND_APP_MENU has :save_data_rows, :restore, :save_n_clear, :edit_help
       @program.append_app_menu(APPEND_APP_MENU){|meth| self.method(meth).call}
+    end
+
+    def edit_help
+      App.edit_help
+    end
+
+    def self.edit_help
+      filename = Gtk2AppLib::UserSpace.readme
+      text = (File.exist?(filename))? IO.read(filename): ''
+      if edited = Gtk2AppLib::DIALOGS.text_view(text, :HELP_TEXT_VIEW) then
+        if edited != text then
+          Gtk2Diet.open(filename){|file| file.puts edited}
+        end
+      end
     end
 
     def build
