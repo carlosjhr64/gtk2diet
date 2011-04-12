@@ -28,23 +28,6 @@ module Gtk2Diet
 
   # STATELESS FUNCTIONS
 
-  def self.mma(float,mma=nil,number=MMA)
-    (mma.nil?)? float : (float + (number-1)*mma)/number
-  end
-
-  # get_mma interpretes each non-comment line from a file as a Float and
-  # computes the modified moving average.
-  #
-  # @param [String] filename
-  # @param [Float] number (of days?)
-  # @return [Float] mma
-  def self.get_mma(filename,number=MMA)
-    File.foreach(filename).select{|line| line !~ /^\s*#/ }.inject(nil) do |mma,line|
-      float = line.to_f
-      Gtk2Diet.mma(float,mma,number)
-    end
-  end
-
   # load_key_values reads a file
   # interprets the firts word in each line as a key
   # and subsequent words as values.
@@ -66,14 +49,6 @@ module Gtk2Diet
   def self.open(filename,&block)
     File.rename(filename,filename+'.bak') if File.exist?(filename)
     File.open(filename,'w',&block)
-  end
-
-  # row_line is a String dump of the labels in row
-  #
-  # @param [Gtk::HBox] row
-  # @return [String]
-  def self.row_line(row)
-    row.children.map{|label| (label.kind_of?(Gtk::Label))? label.text: label.label}.join("\t")
   end
 
   # CLASSES
@@ -121,17 +96,39 @@ module Gtk2Diet
     end
   end
 
+  class Summary < Array # Summary defined
+    def initialize
+      super
+    end
+
+    def populate(row)
+      COUNTER_LABELS.each do |key,label|
+        key = (key == :Label_Label)? :Counter_Wide : :Counter_Narrow
+        self.push( Gtk2AppLib::Widgets::Label.new(key, row) )
+      end
+    end
+
+    def _sum(rows,index)
+      self[index].text = rows.inject(0.0){|sum,row| sum + row.children[index].label.to_f }.to_s
+    end
+
+    #def update_summary(rows)
+    def update(rows)
+      2.upto(N1){|index| _sum(rows,index) }
+    end
+  end
+
   # TODO about Gtk2Diet::App
   class App # App defined
 
     def initialize(program)
-      @program = program
-      @notebook = @combo_box_entry = nil # gets set later
-      @foods = Foods.new
-      @summary = []
-      @entries = Entries.new
+      @program	= program
+      @notebook	= @combo_box_entry = nil # gets set later
+      @foods	= Foods.new
+      @summary	= Summary.new
+      @entries	= Entries.new
       program.window do |window|
-        @window = window
+        @window	= window
         self.build # defined way down below
         window.show_all
       end
@@ -145,23 +142,15 @@ module Gtk2Diet
       rows.children[3..-1]
     end
 
-    def summary_sum(rows,index)
-      @summary[index].text = rows.inject(0.0){|sum,row| sum + row.children[index].label.to_f }.to_s
-    end
-
-    def update_summary
-      rows = data_rows
-      2.upto(N1){|index| summary_sum(rows,index) }
-    end
-
     def _delete(row)
       @notebook[:counterbox_component].remove(row)
       row.destroy
     end
 
     def clear
-      data_rows.each{|row| _delete(row)}
-      update_summary
+      rows = data_rows
+      rows.each{|row| _delete(row)}
+      @summary.update(rows)
     end
 
     def counter_row
@@ -177,7 +166,7 @@ module Gtk2Diet
     def delete(row)
       if Gtk2AppLib::DIALOGS.question?(:DELETE) then
         _delete(row)
-        update_summary
+        @summary.update(data_rows)
       end
     end
 
@@ -196,7 +185,7 @@ module Gtk2Diet
     end
 
     def update
-      update_summary
+      @summary.update(data_rows)
       update_entries
     end
 
@@ -225,10 +214,18 @@ module Gtk2Diet
       append_data_rows
     end
 
+    # row_line is a String dump of the labels in row
+    #
+    # @param [Gtk::HBox] row
+    # @return [String]
+    def self.row_line(row)
+      row.children.map{|label| (label.kind_of?(Gtk::Label))? label.text: label.label}.join("\t")
+    end
+
     def self.save_data_rows(rows)
       file = Gtk2Diet.open(ROWS_FILE)
       rows.each do |row|
-        file.puts Gtk2Diet.row_line(row)
+        file.puts App.row_line(row)
       end
       file.close
     end
@@ -270,8 +267,25 @@ module Gtk2Diet
 	:bumpupn_entry].each{|key| @notebook[key].text = data.shift}
     end
 
+    def self.mma(float,mma=nil,number=MMA)
+      (mma.nil?)? float : (float + (number-1)*mma)/number
+    end
+
+    # get_mma interpretes each non-comment line from a file as a Float and
+    # computes the modified moving average.
+    #
+    # @param [String] filename
+    # @param [Float] number (of days?)
+    # @return [Float] mma
+    def self.get_mma(filename,number=MMA)
+      File.foreach(filename).select{|line| line !~ /^\s*#/ }.inject(nil) do |mma,line|
+        float = line.to_f
+        App.mma(float,mma,number)
+      end
+    end
+
     def self.init_weights
-      mma = (File.exist?(WEIGHTS_FILE))? Gtk2Diet.get_mma(WEIGHTS_FILE,MMA) : WEIGHT
+      mma = (File.exist?(WEIGHTS_FILE))? App.get_mma(WEIGHTS_FILE,MMA) : WEIGHT
       return mma, mma.to_i
     end
 
@@ -306,16 +320,8 @@ module Gtk2Diet
       end
     end
 
-    def summary
-      row = counter_row
-      COUNTER_LABELS.each do |key,label|
-        key = (key == :Label_Label)? :Counter_Wide : :Counter_Narrow
-        @summary.push( Gtk2AppLib::Widgets::Label.new(key, row) )
-      end
-    end
-
     def build_details
-      summary
+      @summary.populate( counter_row )
       appender
       append_data_rows
       init_weights
@@ -354,7 +360,7 @@ module Gtk2Diet
       weight = _weight
       App.append_weight(weight)
       mmaweight_entry = @notebook[:mmaweight_entry]
-      mmaweight_entry.text = Gtk2Diet.mma( weight, mmaweight_entry.text.to_f, MMA ).round_two.to_s
+      mmaweight_entry.text = App.mma( weight, mmaweight_entry.text.to_f, MMA ).round_two.to_s
       target_calories
     end
 
