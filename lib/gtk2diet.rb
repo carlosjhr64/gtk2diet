@@ -1,3 +1,4 @@
+# [] defined
 
 # Adding round_two to Float to ensure 1.8 and 1.9 consistent
 class Float
@@ -17,7 +18,7 @@ module Gtk2Diet
 	'website'	=> 'https://sites.google.com/site/gtk2applib/home/gtk2applib-applications/gtk2diet',
 	'website-label'	=> 'Home Page',
 	'license'	=> 'GPL',
-	'copyright'	=> '2011-04-07 16:13:40',
+	'copyright'	=> '2011-04-12 15:30:31',
   }
 
   GUI.each do |klass,sklass,keys|
@@ -51,7 +52,25 @@ module Gtk2Diet
     File.open(filename,'w',&block)
   end
 
+  def self.gsub(text)
+    text.gsub(/\s+/,'_')
+  end
+
   # CLASSES
+
+  class ComboBoxEntry < Gtk2AppLib::Widgets::ComboBoxEntry # ComboBoxEntry defined
+    def initialize(*parameters)
+      super
+    end
+
+    def active_text
+      Gtk2Diet.gsub( super )
+    end
+
+    def insert_text(index,text)
+      super( index, Gtk2Diet.gsub(text) )
+    end
+  end
 
   # Foods is a Hash of food labels and their nutritional values
   class Foods < Hash # Foods defined
@@ -112,9 +131,12 @@ module Gtk2Diet
       self[index].text = rows.inject(0.0){|sum,row| sum + row.children[index].label.to_f }.to_s
     end
 
-    #def update_summary(rows)
     def update(rows)
       2.upto(N1){|index| _sum(rows,index) }
+    end
+
+    def clear
+      2.upto(N1){|index| self[index].text = '' }
     end
   end
 
@@ -147,10 +169,15 @@ module Gtk2Diet
       row.destroy
     end
 
+    def self.append_calories(calories)
+      File.open(WEIGHTS_FILE,'a') {|file| file.puts "# #{Time.now.strftime(DATE_STAMP)}#{CALORIES}#{calories}" }
+    end
+
     def clear
-      rows = data_rows
-      rows.each{|row| _delete(row)}
-      @summary.update(rows)
+      calories = @summary[2].text.to_i.to_s
+      data_rows.each{|row| _delete(row)}
+      @summary.clear
+      App.append_calories(calories)
     end
 
     def counter_row
@@ -189,8 +216,8 @@ module Gtk2Diet
       update_entries
     end
 
-    def append( entries=@entries.values, timestamp=Time.now.strftime('%H:%I:%M'), row=insert_counter_row )
-      Gtk2AppLib::Widgets::Button.new( timestamp, row, :COUNTER_NARROW, FONT, 'clicked'){ delete(row) }
+    def append( entries=@entries.values, timestamp=Time.now.strftime(TIME_STAMP), row=insert_counter_row )
+      Gtk2AppLib::Widgets::Button.new( timestamp, row, :COUNTER_NARROW, 'clicked'){ delete(row) }
       Gtk2AppLib::Widgets::Label.new( entries.shift, row, :COUNTER_WIDE )
       entries.each{|entry| Gtk2AppLib::Widgets::Label.new( entry, row, :COUNTER_NARROW )}
       update
@@ -278,22 +305,26 @@ module Gtk2Diet
     # @param [Float] number (of days?)
     # @return [Float] mma
     def self.get_mma(filename,number=MMA)
-      File.foreach(filename).select{|line| line !~ /^\s*#/ }.inject(nil) do |mma,line|
+      float = nil
+      mma = File.foreach(filename).select{|line| (line !~ /^\s*#/) && (line =~ /\d/) }.inject(nil) do |mma,line|
         float = line.to_f
         App.mma(float,mma,number)
       end
+      return [mma,float]
     end
 
     def self.init_weights
-      mma = (File.exist?(WEIGHTS_FILE))? App.get_mma(WEIGHTS_FILE,MMA) : WEIGHT
-      return mma, mma.to_i
+      mma,float = *(File.exist?(WEIGHTS_FILE))? App.get_mma(WEIGHTS_FILE,MMA) : [WEIGHT,WEIGHT]
+      return [mma, float, float.to_i]
     end
 
     def init_weights
-      mma,units = App.init_weights
-      @notebook[:mmaweight_entry].text = mma.round_two.to_s
-      @notebook[:weight_spinbutton].value = units
-      @notebook[:fraction_spinbutton].value = (0.5 + 10.0*(mma - units)).to_i
+      mma,float,units = *App.init_weights
+      if mma then
+        @notebook[:mmaweight_label].text = mma.round_two.to_s
+        @notebook[:weight_spinbutton].value = units
+        @notebook[:fraction_spinbutton].value = (0.5 + 10.0*(float - units)).to_i
+      end
     end
 
     def _set_entries(label)
@@ -308,7 +339,7 @@ module Gtk2Diet
 
     def appender_comboboxentry(row)
       Gtk2AppLib::Configuration::PARAMETERS[:Counter_ComboBoxEntries][0] = @foods.sorted_keys
-      @combo_box_entry = Gtk2AppLib::Widgets::ComboBoxEntry.new(:Counter_ComboBoxEntries, row){ set_entries }
+      @combo_box_entry = ComboBoxEntry.new(:Counter_ComboBoxEntries, row){ set_entries }
     end
 
     def appender( row=counter_row )
@@ -343,15 +374,15 @@ module Gtk2Diet
 
     def target_calories
       target = @notebook[:target_entry].text.to_f
-      label = "#{ App.target_calories( _weight - target ) }.  Stages:"
-      calories = App.target_calories( @notebook[:mmaweight_entry].text.to_f - target )
+      label = "#{ App.target_calories( _weight - target ) }  ("
+      calories = App.target_calories( @notebook[:mmaweight_label].text.to_f - target )
       1.upto(STAGES){|stage| label += " #{(calories*(stage.to_f/STAGES.to_f)).to_i},"}
-      @notebook[:targetcalories_label].text = label.chop + '. '
+      @notebook[:targetcalories_label].text = label.chop + ' )'
     end
 
     def self.append_weight(weight)
       File.open(WEIGHTS_FILE,'a') do |file|
-        file.puts "# #{Time.now}"
+        file.puts "# #{Time.now.strftime(DATE_STAMP)}"
         file.puts weight
       end
     end
@@ -359,8 +390,8 @@ module Gtk2Diet
     def weight_button
       weight = _weight
       App.append_weight(weight)
-      mmaweight_entry = @notebook[:mmaweight_entry]
-      mmaweight_entry.text = App.mma( weight, mmaweight_entry.text.to_f, MMA ).round_two.to_s
+      mmaweight_label = @notebook[:mmaweight_label]
+      mmaweight_label.text = App.mma( weight, mmaweight_label.text.to_f, MMA ).round_two.to_s
       target_calories
     end
 
@@ -376,20 +407,30 @@ module Gtk2Diet
     def build_app_menu
       @program.append_app_menu(Gtk::SeparatorMenuItem.new)
       # APPEND_APP_MENU has :save_data_rows, :restore, :save_n_clear, :edit_help
-      @program.append_app_menu(APPEND_APP_MENU){|meth| self.method(meth).call}
+      @program.append_app_menu(APPEND_APP_MENU){|meth|
+        (self.respond_to?(meth))? self.method(meth).call: App.method(meth).call
+      }
     end
 
-    def edit_help
-      App.edit_help
+    def self.edit(filename,default='',options=:HELP_TEXT_VIEW)
+      text = (File.exist?(filename))? IO.read(filename): default
+      if edited = Gtk2AppLib::DIALOGS.text_view(text, options) then
+        if edited != text then
+          Gtk2Diet.open(filename){|file| file.puts edited}
+          return true
+        end
+      end
+      return false
     end
 
     def self.edit_help
-      filename = Gtk2AppLib::UserSpace.readme
-      text = (File.exist?(filename))? IO.read(filename): ''
-      if edited = Gtk2AppLib::DIALOGS.text_view(text, :HELP_TEXT_VIEW) then
-        if edited != text then
-          Gtk2Diet.open(filename){|file| file.puts edited}
-        end
+      App.edit( Gtk2AppLib::UserSpace.readme )
+    end
+
+    def edit_weights
+      if App.edit( WEIGHTS_FILE, WEIGHTS_DEFAULT, :WEIGHTS_TEXT_VIEW ) then
+        init_weights
+        target_calories
       end
     end
 
