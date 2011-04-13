@@ -18,7 +18,7 @@ module Gtk2Diet
 	'website'	=> 'https://sites.google.com/site/gtk2applib/home/gtk2applib-applications/gtk2diet',
 	'website-label'	=> 'Home Page',
 	'license'	=> 'GPL',
-	'copyright'	=> '2011-04-12 15:30:31',
+	'copyright'	=> '2011-04-13 10:16:59',
   }
 
   GUI.each do |klass,sklass,keys|
