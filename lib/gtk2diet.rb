@@ -18,7 +18,7 @@ module Gtk2Diet
 	'website'	=> 'https://sites.google.com/site/gtk2applib/home/gtk2applib-applications/gtk2diet',
 	'website-label'	=> 'Home Page',
 	'license'	=> 'GPL',
-	'copyright'	=> '2011-04-13 10:16:59',
+	'copyright'	=> '2011-04-14 06:40:32',
   }
 
   GUI.each do |klass,sklass,keys|
@@ -382,16 +382,14 @@ module Gtk2Diet
 
     def self.append_weight(weight)
       File.open(WEIGHTS_FILE,'a') do |file|
-        file.puts "# #{Time.now.strftime(DATE_STAMP)}"
-        file.puts weight
+        file.puts "#{weight}\t# #{Time.now.strftime(DATE_STAMP)}"
       end
     end
 
     def weight_button
       weight = _weight
       App.append_weight(weight)
-      mmaweight_label = @notebook[:mmaweight_label]
-      mmaweight_label.text = App.mma( weight, mmaweight_label.text.to_f, MMA ).round_two.to_s
+      init_weights
       target_calories
     end
 

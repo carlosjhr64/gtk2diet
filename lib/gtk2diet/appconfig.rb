@@ -17,8 +17,8 @@ module Gtk2Diet # Gtk2Diet defined
   MMA = 7.0 # The modified moving average N
   STAGES = 6 # Number of daily meals
 
-  DATE_STAMP = '%Y-%m%d %H:%I:%M'
-  TIME_STAMP = '%H:%I:%M'
+  DATE_STAMP = '%Y-%m-%d %H:%M:%S'
+  TIME_STAMP = '%H:%M:%S'
 
   CALORIES = "\tCleared Calories: "
 
@@ -123,18 +123,21 @@ module Configuration
   # Note that PARAMETERS[:Counter_ComboBoxEntries][0] is set to Gtk2Diet.foods in lib/gtk2diet.rb
   PARAMETERS[:Counter_ComboBoxEntries]	= [nil,		:COUNTER_WIDE, 'changed']
 
+  # Some of these value setting are redundant (overwritten later),
+  # but I use them here just to start things with a reasonable value.
   weight = Gtk2Diet::WEIGHT
   weight_s = weight.to_s
   weight_i = weight.to_i
   fraction = (0.5 + 10.0*(weight - weight_i)).to_i
+
   # Configuration Page Configuration
   PARAMETERS[:Targets_Component]	= ['Targets']
-  PARAMETERS[:Weight_SpinButton]	= [[], {:set_range  => [0,999], :value= => weight_i}]
+  PARAMETERS[:Weight_SpinButton]	= [[], {:set_range  => [0,999], :value= => weight_i}]	# value here is overwritten later
   PARAMETERS[:Dot_Label]		= ['.']
-  PARAMETERS[:Fraction_SpinButton]	= [[], {:set_range  => [0,9], :value= => fraction}]
+  PARAMETERS[:Fraction_SpinButton]	= [[], {:set_range  => [0,9], :value= => fraction}]	# value here is overwritten later
   PARAMETERS[:Weight_Button]		= ['Append Daily Weight','clicked']
   PARAMETERS[:MmaIs_Label]		= ['Modified Moving Average:']
-  PARAMETERS[:MmaWeight_Label]		= [weight_s,	:COUNTER_NARROW]
+  PARAMETERS[:MmaWeight_Label]		= [weight_s,	:COUNTER_NARROW]	# text label is overwritten later
   PARAMETERS[:Target_Label]		= ['Target Weight:',	:COUNTER_WIDE]
   PARAMETERS[:Target_Entry]		= [weight_s,	:COUNTER_NARROW]
   PARAMETERS[:TargetCalories_Button]	= ['Calculate Target Calories','clicked']
