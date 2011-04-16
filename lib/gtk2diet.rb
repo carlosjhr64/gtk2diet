@@ -18,7 +18,7 @@ module Gtk2Diet
 	'website'	=> 'https://sites.google.com/site/gtk2applib/home/gtk2applib-applications/gtk2diet',
 	'website-label'	=> 'Home Page',
 	'license'	=> 'GPL',
-	'copyright'	=> '2011-04-14 06:40:32',
+	'copyright'	=> '2011-04-15 17:29:33',
   }
 
   GUI.each do |klass,sklass,keys|
@@ -363,19 +363,27 @@ module Gtk2Diet
       @notebook[:weight_spinbutton].value.to_f + (@notebook[:fraction_spinbutton].value.to_f / 10.0)
     end
 
-    def self.target_calories( diff )
+    def calculate_target_calories( diff )
+      base_diet		= @notebook[:base_entry].text.to_f
+
       if diff > 0 then
-        calories = (BASE_DIET - (BASE_DIET - CRASH_DIET) * diff / CRASH_DIET_N).to_i
-        calories = CRASH_DIET if calories < CRASH_DIET
+        crash_diet	= @notebook[:crash_entry].text.to_f
+        crash_diet_n	= @notebook[:crashn_entry].text.to_f
+
+        calories = (base_diet - (base_diet - crash_diet) * diff / crash_diet_n).to_i
+        calories = crash_diet if calories < crash_diet
         return calories
       end
-      return (BASE_DIET + (BASE_DIET - BUMPUP_DIET) * diff / BUMPUP_DIET_N).to_i
+
+      bumpup_diet	= @notebook[:bumpup_entry].text.to_f
+      bumpup_diet_n	= @notebook[:bumpupn_entry].text.to_f
+      return (base_diet + (base_diet - bumpup_diet) * diff / bumpup_diet_n).to_i
     end
 
     def target_calories
       target = @notebook[:target_entry].text.to_f
-      label = "#{ App.target_calories( _weight - target ) }  ("
-      calories = App.target_calories( @notebook[:mmaweight_label].text.to_f - target )
+      label = "#{ calculate_target_calories( _weight - target ) }  ("
+      calories = calculate_target_calories( @notebook[:mmaweight_label].text.to_f - target )
       1.upto(STAGES){|stage| label += " #{(calories*(stage.to_f/STAGES.to_f)).to_i},"}
       @notebook[:targetcalories_label].text = label.chop + ' )'
     end

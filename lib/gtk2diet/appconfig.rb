@@ -15,7 +15,7 @@ module Gtk2Diet # Gtk2Diet defined
   PARAMETERS_FILE = Gtk2AppLib::USERDIR	+ '/parameters.txt'
 
   MMA = 7.0 # The modified moving average N
-  STAGES = 6 # Number of daily meals
+  STAGES = 5 # Number of daily meals
 
   DATE_STAMP = '%Y-%m-%d %H:%M:%S'
   TIME_STAMP = '%H:%M:%S'

@@ -1,5 +1,11 @@
 TODO
 
+	MMA... you don't actually need to read the file each time
+		But how?
+
+DONE
+
+	5 stages works better than 6.
 	append like
 		weight date
 	instead of
@@ -9,7 +15,6 @@ TODO
 	initial MMA is wrong
 		there's 2 paths to get mma, that's a problem.
 
-DONE
 
 	Usability of the app menu items?
 	Idiot proofing... go over all user entries, ensure correct format.
